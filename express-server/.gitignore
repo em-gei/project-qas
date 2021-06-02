@@ -1,0 +1,5 @@
+build/
+node_modules/
+heapdump-*
+nodejs_*
+resourceRegistry.log

@@ -1,0 +1,23 @@
+[
+    {
+        "name": "Tizio",
+        "surname": "Tiziani",
+        "fiscalCode": "TTTASD",
+        "birthday": "2000-01-01 00:00:00.000",
+        "email": "tizio@gmail.com"
+    },
+    {
+        "name": "Gino",
+        "surname": "Bartali",
+        "fiscalCode": "GGGBRTadf",
+        "birthday": "2000-01-01 00:00:00.000",
+        "email": "gino@gmail.com"
+    },
+    {
+        "name": "Fausto",
+        "surname": "Coppi",
+        "fiscalCode": "FSTCPP",
+        "birthday": "2000-01-01 00:00:00.000",
+        "email": "fausto@gmail.com"
+    }
+]

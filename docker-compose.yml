@@ -1,0 +1,26 @@
+# docker-compose version
+version: '2'
+
+# Services/containers to be run
+services:
+  express: #name of the first service
+    build: express-server # specify the directory of the Dockerfile
+    ports:
+      - "3000:3000" #specify ports forewarding
+    links:
+      - mongodb
+
+  mongodb: # name of the second service
+    image: mongo # specify image to build container from
+    ports:
+      - "27017:27017" # specify port forewarding
+
+  destination: #name of the third service
+      build: destination-server # specify the directory of the Dockerfile
+      ports:
+        - "9500:9500" #specify ports forewarding
+
+  mongo_seed:
+    build: mongo_seed # Pre-load data in database
+    links:
+      - mongodb
