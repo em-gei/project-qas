@@ -16,9 +16,9 @@ services:
       - "27017:27017" # specify port forewarding
 
   destination: #name of the third service
-      build: destination-server # specify the directory of the Dockerfile
-      ports:
-        - "9500:9500" #specify ports forewarding
+    build: destination-server # specify the directory of the Dockerfile
+    ports:
+      - "9500:9500" #specify ports forewarding
 
   mongo_seed:
     build: mongo_seed # Pre-load data in database

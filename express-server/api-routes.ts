@@ -6,8 +6,8 @@ import { patients } from "./schema";
 const router = express.Router();
 
 // Get database URL from docker-compose
+const dbHost = "mongodb://localhost:27017/healthcare-system"; // use this when run server and database separately
 // const dbHost = "mongodb://localhost:27017/healthcare-system"; // use this when run server and database separately
-const dbHost = "mongodb://mongodb/healthcare-system"; // use this when running docker-compose
 // Connect to DB
 mongoose.connect(dbHost);
 mongoose.set('useFindAndModify', false); // Make Mongoose use `findOneAndUpdate()`, this option is `true` by default, need to set it to false.
@@ -35,7 +35,7 @@ router.get("/patients", (req: Request, res: Response) => {
   });
 });
 
-// GET - Find in registry
+// GET - Find patient by id
 router.get("/patients/:id", (req: Request, res: Response) => {
   Patients.findById(req.params["id"], (err: any, patient: any) => {
     if (err) res.status(500).send(err);
@@ -44,7 +44,7 @@ router.get("/patients/:id", (req: Request, res: Response) => {
   });
 });
 
-// POST Create a registry entry
+// POST Create a patient entry
 router.post("/patients", async (req: Request, res: Response) => {
   let name = req.body.name;
   let surname = req.body.surname;

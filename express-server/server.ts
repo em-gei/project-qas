@@ -1,19 +1,30 @@
+// MUST BE FIRST INSTRUCTION
 var appmetrics = require("appmetrics");
 
 // Dependencies
 import express from "express";
 import http from "http";
 import bodyParser from "body-parser";
+const createCsvWriter = require('csv-writer').createObjectCsvWriter;
+// const myLogger = require("./logger"); // LOGGER SHOULD BE ADD IF WANT TO ADD CONFIDENTIALITY THREAT
+
 
 var monitoring = appmetrics.monitor();
+let cpuUsage: string;
+let networkCall: string;
+let ram: string;
+let memCached: string;
+let garbageCollector: string;
+let counter: number = 0;
 
 const app = express();
-// API routes
-const api = require("./api-routes");
 
 // Parsers
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+
+// Malicius logger
+// app.use(myLogger()); // // LOGGER SHOULD BE ADD IF WANT TO ADD CONFIDENTIALITY THREAT
 
 // Cross Origin middleware
 app.use(function (req, res, next) {
@@ -25,6 +36,8 @@ app.use(function (req, res, next) {
   next();
 });
 
+// API routes
+const api = require("./api-routes");
 app.use("/api", api);
 
 // Set server port
@@ -34,101 +47,113 @@ app.set("port", port);
 // Create HTTP server
 const server = http.createServer(app);
 
-// monitoring.on('initialized', function (env: any) {
-//   env = monitoring.getEnvironment();
-//   for (var entry in env) {
-//       console.log(entry + ':' + env[entry]);
-//   };
-// });
+const csvWriter = createCsvWriter({
+  path: 'log-data-confidentiality-threats.csv',
+  header: [
+    {id: 'time', title: 'Time'},
+    {id: 'cpu', title: 'Cpu Usage %'},
+    {id: 'network', title: 'Network Call'},
+    {id: 'ram', title: 'RAM Usage % by server'},
+    {id: 'gc', title: 'Garbage Collector (Javascript used HEAP bytes)'}
+  ]
+});
+let data: { time: Date, cpu: string, network: string, ram: string, memCached: string, gc: string }[] = new Array();
 
-// UTILIZZO DELLA RETE !!!
+// NETWORK USAGE
 monitoring.on("http", function (http: any) {
-  console.log(
-    "Ricevuta chiamata http: [" +
-      http.statusCode +
-      "] [" +
-      http.method +
-      "] " +
-      http.url
-  );
+  networkCall = "[IN] - " + +http.statusCode + ' [' + http.method + '] ' + http.url;
+  let obj = {
+    time: new Date(),
+    cpu: cpuUsage,
+    network: networkCall,
+    ram: ram,
+    memCached: memCached,
+    gc: garbageCollector
+  };
+  pushData(obj);
 });
 monitoring.on("https", function (http: any) {
-  console.log(
-    "Ricevuta chiamata https: [" +
-      http.statusCode +
-      "] [" +
-      http.method +
-      "] " +
-      http.url
-  );
+  networkCall = "[IN] - " + +http.statusCode + ' [' + http.method + '] ' + http.url;
+  let obj = {
+    time: new Date(),
+    cpu: cpuUsage,
+    network: networkCall,
+    ram: ram,
+    memCached: memCached,
+    gc: garbageCollector
+  };
+  pushData(obj);
+});
+monitoring.on("http-outbound", function (resp: any) {
+  networkCall = "[OUT] - " + +resp.statusCode + ' [' + resp.method + '] ' + resp.url;
+  let obj = {
+    time: new Date(),
+    cpu: cpuUsage,
+    network: networkCall,
+    ram: ram,
+    memCached: memCached,
+    gc: garbageCollector
+  };
+  pushData(obj);
+});
+monitoring.on("https-outbound", function (resp: any) {
+  networkCall = "[OUT] - " + +resp.statusCode + ' [' + resp.method + '] ' + resp.url;
+  let obj = {
+    time: new Date(),
+    cpu: cpuUsage,
+    network: networkCall,
+    ram: ram,
+    memCached: memCached,
+    gc: garbageCollector
+  };
+  pushData(obj);
 });
 // -----------------------
 
-// UTILIZZO DEL DISCO !!!
+// CPU USAGE
 monitoring.on("cpu", function (cpu: any) {
-  console.log("[" + new Date(cpu.time) + "] CPU: " + cpu.process);
+  cpuUsage = cpu.process;
 });
 
-monitoring.on("mongo", function (mongo: any) {
-  console.log(
-    "Mongo Query made: [" +
-      new Date(mongo.time) +
-      "], METHOD: " +
-      mongo.method +
-      "QUERY: " +
-      mongo.query
-  );
-});
-// -----------------------
-
-// UTILIZZO DELLA MEMORIA (RAM)
+// RAM USAGE
 monitoring.on("memory", function (memory: any) {
-  console.log(
-    "RAM in use: " +
-      memory.physical_used +
-      ". RAM available: " +
-      memory.physical_free +
-      "RAM used by server: " +
-      memory.physical
-  );
+  ram = memory.physical; // RAM used by server
 });
-
-monitoring.on("memcached", function (memory: any) {
-  console.log(
-    "Memory cached: " +
-      new Date(
-        memory.data.time +
-          "Method: [" +
-          memory.data.method +
-          "], Key: [" +
-          memory.data.key +
-          "]"
-      )
-  );
-});
-
+// GARBAGE COLLECTOR USAGE
 monitoring.on("gc", function (gc: any) {
-  console.log("Garbage Collection cycle occurred: [" + new Date(gc.time) + "]");
-  let type = "";
-  switch (gc.type) {
-    case "M":
-      type = "major";
-      break;
-    case "S":
-      type = "minor";
-      break;
-    case "I":
-      type = "incremental";
-      break;
-    case "W":
-      type = "weakcb";
-      break;
-  }
-  console.log("GC Type: " + type);
-  console.log("Javascript HEAP bytes: " + gc.size);
-  console.log("Javascript used HEAP bytes: " + gc.used);
+  garbageCollector = gc.used; // Javascript used HEAP bytes
 });
 // -----------------------
 
 // Listen on provided port
 server.listen(port, () => console.log(`API running on localhost:${port}`));
+
+setInterval(()=> { timedPushData() }, 5000);
+
+function timedPushData() {
+  counter++;
+  let obj = {
+    time: new Date(),
+    cpu: cpuUsage,
+    network: '',
+    ram: ram,
+    memCached: memCached,
+    gc: garbageCollector
+  };
+  pushData(obj);
+
+  if (counter == 9) {
+    // LOG FILE IS WRITTEN AFTER 45 SECONDS
+    writeCsvFile();
+  }
+}
+
+function writeCsvFile() { 
+  csvWriter
+    .writeRecords(data)
+    .then(()=> console.log('The CSV file has been written successfully'));
+}
+
+function pushData(obj: any) {
+  data.push(obj);
+}
