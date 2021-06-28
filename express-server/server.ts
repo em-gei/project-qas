@@ -10,11 +10,11 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 
 
 var monitoring = appmetrics.monitor();
-let cpuUsage: string;
+let cpuUsage: number;
 let networkCall: string;
-let ram: string;
-let memCached: string;
-let garbageCollector: string;
+let ram: number;
+let memCached: number;
+let garbageCollector: number;
 let counter: number = 0;
 
 const app = express();
@@ -47,14 +47,23 @@ app.set("port", port);
 // Create HTTP server
 const server = http.createServer(app);
 
+// Local Variables
+let callList: number[] = [];
+let oldCpuUsage: number | null = null;
+let oldRamUsage: number | null = null;
+let oldMemCachedUsage: number | null = null;
+let oldGcUsage: number | null = null;
+let inCallTime: number;
+
 const csvWriter = createCsvWriter({
-  path: 'log-data-confidentiality-threats.csv',
+  path: 'log-data-integrity-threats.csv',
   header: [
     {id: 'time', title: 'Time'},
     {id: 'cpu', title: 'Cpu Usage %'},
     {id: 'network', title: 'Network Call'},
     {id: 'ram', title: 'RAM Usage % by server'},
-    {id: 'gc', title: 'Garbage Collector (Javascript used HEAP bytes)'}
+    {id: 'gc', title: 'Garbage Collector (Javascript used HEAP bytes)'},
+    {id: 'classType', title: 'Class'}
   ]
 });
 let data: { time: Date, cpu: string, network: string, ram: string, memCached: string, gc: string }[] = new Array();
@@ -62,49 +71,56 @@ let data: { time: Date, cpu: string, network: string, ram: string, memCached: st
 // NETWORK USAGE
 monitoring.on("http", function (http: any) {
   networkCall = "[IN] - " + +http.statusCode + ' [' + http.method + '] ' + http.url;
+  inCallTime = http.time;
   let obj = {
     time: new Date(),
     cpu: cpuUsage,
     network: networkCall,
     ram: ram,
     memCached: memCached,
-    gc: garbageCollector
+    gc: garbageCollector,
+    classType: getCallType(inCallTime)
   };
   pushData(obj);
 });
 monitoring.on("https", function (http: any) {
   networkCall = "[IN] - " + +http.statusCode + ' [' + http.method + '] ' + http.url;
+  inCallTime = http.time;
   let obj = {
-    time: new Date(),
+    time: http.time,
     cpu: cpuUsage,
     network: networkCall,
     ram: ram,
     memCached: memCached,
-    gc: garbageCollector
+    gc: garbageCollector,
+    classType: getCallType(inCallTime)
   };
   pushData(obj);
 });
-monitoring.on("http-outbound", function (resp: any) {
-  networkCall = "[OUT] - " + +resp.statusCode + ' [' + resp.method + '] ' + resp.url;
+monitoring.on("http-outbound", function (http: any) {
+  networkCall = "[OUT] - " + +http.statusCode + ' [' + http.method + '] ' + http.url;
+
   let obj = {
     time: new Date(),
     cpu: cpuUsage,
     network: networkCall,
     ram: ram,
     memCached: memCached,
-    gc: garbageCollector
+    gc: garbageCollector,
+    classType: getOutCallType(http.time)
   };
   pushData(obj);
 });
-monitoring.on("https-outbound", function (resp: any) {
-  networkCall = "[OUT] - " + +resp.statusCode + ' [' + resp.method + '] ' + resp.url;
+monitoring.on("https-outbound", function (http: any) {
+  networkCall = "[OUT] - " + +http.statusCode + ' [' + http.method + '] ' + http.url;
   let obj = {
     time: new Date(),
     cpu: cpuUsage,
     network: networkCall,
     ram: ram,
     memCached: memCached,
-    gc: garbageCollector
+    gc: garbageCollector,
+    classType: getOutCallType(http.time)
   };
   pushData(obj);
 });
@@ -138,10 +154,14 @@ function timedPushData() {
     network: '',
     ram: ram,
     memCached: memCached,
-    gc: garbageCollector
+    gc: garbageCollector,
+    classType: getDataType()
   };
   pushData(obj);
 
+  if (counter %2 == 0) {
+    fakeRequest();
+  }
   if (counter == 9) {
     // LOG FILE IS WRITTEN AFTER 45 SECONDS
     writeCsvFile();
@@ -156,4 +176,70 @@ function writeCsvFile() {
 
 function pushData(obj: any) {
   data.push(obj);
+}
+
+function getCallType(time: number): string {
+  let type = "normal";
+  callList.push(time);
+  if (callList.length == 10) {
+    let diff = callList[9] - callList[0];
+    if (diff <= 100) {
+      type = "anomaly";
+    }
+    callList.shift();
+  }
+
+  return type;
+}
+
+function getOutCallType(time: number): string {
+  let callType = "normal";
+  if (time - inCallTime < 500) {
+    callType = "anomaly";
+  }
+  return callType;
+}
+
+function getDataType(): string {
+  let classType = "normal";
+  if (oldCpuUsage == null) {
+    oldCpuUsage = cpuUsage;
+  } else {
+    classType = (cpuUsage > (oldCpuUsage + oldCpuUsage * 0.25)) ? "anomaly" : "normal";
+  }
+  if (oldRamUsage == null) {
+    oldRamUsage = ram;
+  } else {
+    classType = (ram > (oldRamUsage + oldRamUsage * 0.25)) ? "anomaly" : "normal";
+  }
+  if (oldMemCachedUsage == null) {
+    oldMemCachedUsage = memCached;
+  } else {
+    classType = (memCached > (oldMemCachedUsage + oldMemCachedUsage * 0.25)) ? "anomaly" : "normal";
+  }
+  if (oldGcUsage == null) {
+    oldGcUsage = garbageCollector;
+  } else {
+    classType = (garbageCollector > (oldGcUsage + oldGcUsage * 0.25)) ? "anomaly" : "normal";
+  }
+  return classType;
+}
+
+function fakeRequest() {
+  const post_options = {
+    host: 'www.google.it',
+    port: '',
+    path: '/',
+    method: 'GET'
+  };
+  var post_req = http.request(post_options, function (res) {
+    res.setEncoding('utf8');
+    res.on('data', function (chunk) {
+      console.log('Response: ' + chunk);
+    });
+  });
+
+  // post the data
+
+  post_req.end();
 }
