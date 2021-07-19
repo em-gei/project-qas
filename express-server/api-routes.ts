@@ -7,7 +7,7 @@ const router = express.Router();
 
 // Get database URL from docker-compose
 const dbHost = "mongodb://localhost:27017/healthcare-system"; // use this when run server and database separately
-// const dbHost = "mongodb://localhost:27017/healthcare-system"; // use this when run server and database separately
+// const dbHost = "mongodb://mongodb:27017/healthcare-system"; // use this when run server and database separately
 // Connect to DB
 mongoose.connect(dbHost);
 mongoose.set('useFindAndModify', false); // Make Mongoose use `findOneAndUpdate()`, this option is `true` by default, need to set it to false.

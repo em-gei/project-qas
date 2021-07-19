@@ -56,13 +56,13 @@ let oldGcUsage: number | null = null;
 let inCallTime: number;
 
 const csvWriter = createCsvWriter({
-  path: 'log-data-integrity-threats.csv',
+  path: 'log-integrity-threats.csv',
   header: [
     {id: 'time', title: 'Time'},
-    {id: 'cpu', title: 'Cpu Usage %'},
-    {id: 'network', title: 'Network Call'},
-    {id: 'ram', title: 'RAM Usage % by server'},
-    {id: 'gc', title: 'Garbage Collector (Javascript used HEAP bytes)'},
+    {id: 'cpu', title: 'Cpu_Usage_Percentage'},
+    {id: 'network', title: 'Network_Call'},
+    {id: 'ram', title: 'RAM_Usage_Percentage'},
+    {id: 'gc', title: 'Garbage_Collector'},
     {id: 'classType', title: 'Class'}
   ]
 });
@@ -144,7 +144,7 @@ monitoring.on("gc", function (gc: any) {
 // Listen on provided port
 server.listen(port, () => console.log(`API running on localhost:${port}`));
 
-setInterval(()=> { timedPushData() }, 5000);
+setInterval(()=> { timedPushData() }, 1000);
 
 function timedPushData() {
   counter++;
@@ -159,11 +159,11 @@ function timedPushData() {
   };
   pushData(obj);
 
-  if (counter %2 == 0) {
+  if (counter % 3 == 0) {
     fakeRequest();
   }
-  if (counter == 9) {
-    // LOG FILE IS WRITTEN AFTER 45 SECONDS
+  if (counter == 600) {
+    // LOG FILE IS WRITTEN AFTER 10 MINUTES
     writeCsvFile();
   }
 }
