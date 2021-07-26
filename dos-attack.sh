@@ -1,3 +1,5 @@
+#! /bin/sh
+
 echo "##################################"
 echo "Simulating DoS Attack!"
 echo

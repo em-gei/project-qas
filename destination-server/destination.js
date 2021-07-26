@@ -7,7 +7,7 @@ app.get('/', (req, res) => {
 })
 
 app.post('/', (req, res) => {
-  res.send('Dati ricevuti')
+  res.send('Dati ricevuti \n')
   })
 
 app.listen(port, () => {

@@ -6,8 +6,8 @@ import express from "express";
 import http from "http";
 import bodyParser from "body-parser";
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
-// const myLogger = require("./logger"); // LOGGER SHOULD BE ADD IF WANT TO ADD CONFIDENTIALITY THREAT
 
+const antivirus = require('./antivirus');
 
 var monitoring = appmetrics.monitor();
 let cpuUsage: number;
@@ -22,9 +22,6 @@ const app = express();
 // Parsers
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-
-// Malicius logger
-// app.use(myLogger()); // // LOGGER SHOULD BE ADD IF WANT TO ADD CONFIDENTIALITY THREAT
 
 // Cross Origin middleware
 app.use(function (req, res, next) {
@@ -47,16 +44,8 @@ app.set("port", port);
 // Create HTTP server
 const server = http.createServer(app);
 
-// Local Variables
-let callList: number[] = [];
-let oldCpuUsage: number | null = null;
-let oldRamUsage: number | null = null;
-let oldMemCachedUsage: number | null = null;
-let oldGcUsage: number | null = null;
-let inCallTime: number;
-
 const csvWriter = createCsvWriter({
-  path: 'log-integrity-threats.csv',
+  path: 'log-dos-threats.csv',
   header: [
     {id: 'time', title: 'Time'},
     {id: 'cpu', title: 'Cpu_Usage_Percentage'},
@@ -71,56 +60,51 @@ let data: { time: Date, cpu: string, network: string, ram: string, memCached: st
 // NETWORK USAGE
 monitoring.on("http", function (http: any) {
   networkCall = "[IN] - " + +http.statusCode + ' [' + http.method + '] ' + http.url;
-  inCallTime = http.time;
-  let obj = {
-    time: new Date(),
-    cpu: cpuUsage,
-    network: networkCall,
-    ram: ram,
-    memCached: memCached,
-    gc: garbageCollector,
-    classType: getCallType(inCallTime)
-  };
-  pushData(obj);
-});
-monitoring.on("https", function (http: any) {
-  networkCall = "[IN] - " + +http.statusCode + ' [' + http.method + '] ' + http.url;
-  inCallTime = http.time;
   let obj = {
     time: http.time,
     cpu: cpuUsage,
     network: networkCall,
     ram: ram,
     memCached: memCached,
-    gc: garbageCollector,
-    classType: getCallType(inCallTime)
+    gc: garbageCollector
   };
   pushData(obj);
 });
-monitoring.on("http-outbound", function (http: any) {
-  networkCall = "[OUT] - " + +http.statusCode + ' [' + http.method + '] ' + http.url;
 
+monitoring.on("https", function (http: any) {
+  networkCall = "[IN] - " + +http.statusCode + ' [' + http.method + '] ' + http.url;
   let obj = {
-    time: new Date(),
+    time: http.time,
     cpu: cpuUsage,
     network: networkCall,
     ram: ram,
     memCached: memCached,
-    gc: garbageCollector,
-    classType: getOutCallType(http.time)
+    gc: garbageCollector
+  };
+  pushData(obj);
+});
+
+monitoring.on("http-outbound", function (http: any) {
+  networkCall = "[OUT] - " + +http.statusCode + ' [' + http.method + '] ' + http.url;
+  let obj = {
+    time: http.time,
+    cpu: cpuUsage,
+    network: networkCall,
+    ram: ram,
+    memCached: memCached,
+    gc: garbageCollector
   };
   pushData(obj);
 });
 monitoring.on("https-outbound", function (http: any) {
   networkCall = "[OUT] - " + +http.statusCode + ' [' + http.method + '] ' + http.url;
   let obj = {
-    time: new Date(),
+    time: http.time,
     cpu: cpuUsage,
     network: networkCall,
     ram: ram,
     memCached: memCached,
-    gc: garbageCollector,
-    classType: getOutCallType(http.time)
+    gc: garbageCollector
   };
   pushData(obj);
 });
@@ -154,8 +138,7 @@ function timedPushData() {
     network: '',
     ram: ram,
     memCached: memCached,
-    gc: garbageCollector,
-    classType: getDataType()
+    gc: garbageCollector
   };
   pushData(obj);
 
@@ -175,56 +158,14 @@ function writeCsvFile() {
 }
 
 function pushData(obj: any) {
-  data.push(obj);
+  // Add type label depending on antivirus response
+  antivirus.isAnomaly().then((outcome: boolean) => {
+    obj['classType'] = outcome ? 'anomaly' : 'normal'
+    data.push(obj);
+  }); 
 }
 
-function getCallType(time: number): string {
-  let type = "normal";
-  callList.push(time);
-  if (callList.length == 10) {
-    let diff = callList[9] - callList[0];
-    if (diff <= 100) {
-      type = "anomaly";
-    }
-    callList.shift();
-  }
-
-  return type;
-}
-
-function getOutCallType(time: number): string {
-  let callType = "normal";
-  if (time - inCallTime < 500) {
-    callType = "anomaly";
-  }
-  return callType;
-}
-
-function getDataType(): string {
-  let classType = "normal";
-  if (oldCpuUsage == null) {
-    oldCpuUsage = cpuUsage;
-  } else {
-    classType = (cpuUsage > (oldCpuUsage + oldCpuUsage * 0.25)) ? "anomaly" : "normal";
-  }
-  if (oldRamUsage == null) {
-    oldRamUsage = ram;
-  } else {
-    classType = (ram > (oldRamUsage + oldRamUsage * 0.25)) ? "anomaly" : "normal";
-  }
-  if (oldMemCachedUsage == null) {
-    oldMemCachedUsage = memCached;
-  } else {
-    classType = (memCached > (oldMemCachedUsage + oldMemCachedUsage * 0.25)) ? "anomaly" : "normal";
-  }
-  if (oldGcUsage == null) {
-    oldGcUsage = garbageCollector;
-  } else {
-    classType = (garbageCollector > (oldGcUsage + oldGcUsage * 0.25)) ? "anomaly" : "normal";
-  }
-  return classType;
-}
-
+// Fake request to simulate server behaviour
 function fakeRequest() {
   const post_options = {
     host: 'www.google.it',
@@ -232,14 +173,11 @@ function fakeRequest() {
     path: '/',
     method: 'GET'
   };
+
   var post_req = http.request(post_options, function (res) {
     res.setEncoding('utf8');
-    res.on('data', function (chunk) {
-      console.log('Response: ' + chunk);
-    });
   });
 
   // post the data
-
   post_req.end();
 }
