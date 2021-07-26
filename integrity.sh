@@ -1,3 +1,4 @@
+#! /bin/sh
 echo "##################################"
 echo "Files in directory:"
 echo

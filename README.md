@@ -5,9 +5,7 @@ Il server principale (il nostro sistema di healthcare) è dentro la cartella "ex
 - monitor: esegue l'applicazione monitorandola con appmetrics
 - dash: esegue l'applicazione monitorandola con appmetrics ed espone una dashboard all'indirizzo http://localhost:3001/appmetrics-dash/ 
 
-Dentro il server express è definita una dipendenza:
-    const myLogger = require("./logger")
-Questo è un logger esterno fake fatto per simulare iniezione di un malware. Data la sua natura, se definiamo la dipendenza dentro il server originale, sarà necessario avviare il "destination-server" utilizzato dalla dipendenza per inoltrare i dati dell'utente in maniera nascosta.
+Per poter eseguire le minacce dos e di confidenzialità per mezzo dei relativi scripts è necessario avviare in precedenza il progetto "destination-server" il quale viene utilizzato come destinazione appunto per inoltrare i dati dell'utente in maniera nascosta.
 
 # Avviare il database
 Per lanciare il database eseguire da linea di comando l'istruzione: 
@@ -22,8 +20,10 @@ Lanciare lo script ./integrity.sh che permette di navigare tra i file del filesy
 ## AVAILABILITY: Denial of Service (DoS)
 Lanciare lo script ./dos-attack.sh che inonda il server con chiamate http in GET e POST
 ## CONFIDENTIALITY: Malware
-Per iniettare questo malware bisogna aggiungere nel server express la dipendenza della libreria "fake" e definirne l'utilizzo come segue
-    const myLogger = require("./logger");
-    app.use(myLogger());
-Ogni qual volta che il server riceve una chiamata http/https, la funzione middleware inserita nella libreria fake andrà a creare un file di testo sul filesystem nel quale viene scritto l'output del comando "printenv". I dati così esposti sono poi inviati verso il server maligno "destination-server" sulla porta 9500.
+Eseguendo lo script ./confidentiality.sh viene creato un file di testo sul filesystem nel quale viene scritto l'output del comando "printenv". 
+I dati così recuperati sono poi inviati verso il server maligno "destination-server" in ascolto sulla porta 9500.
 
+# Scoprire se uno script è in esecuzione
+Prima di eseguire il seguente comando assicurarsi che nello script da individuare sia presente il commento iniziale '#! /bin/sh' che permette di identificarne il nome mentre in esecuzione:
+- pgrep -f nomeFile
+Se lo script è in esecuzione verrà restituito il PID associato al processo

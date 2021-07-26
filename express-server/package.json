@@ -11,6 +11,7 @@
   },
   "author": "Jacopo Mattei",
   "license": "ISC",
+  "type": "module",
   "dependencies": {
     "appmetrics": "^5.1.1",
     "appmetrics-dash": "^5.3.0",
